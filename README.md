@@ -16,7 +16,7 @@ Get the zip for your computer from the **[latest release](https://github.com/Fs1
 Unzip it and run **atomsim-viz**. Keep the `data` folder next to it.
 
 - **Windows:** if SmartScreen warns you, click *More info → Run anyway*.
-- **macOS:** the app isn't signed, so the first time, right-click it and choose *Open*.
+- **macOS:** the app isn't signed. If macOS blocks it, open *System Settings → Privacy & Security* and click *Open Anyway*.
 
 ## Screenshots
 
