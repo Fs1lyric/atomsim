@@ -1,0 +1,2 @@
+# Nuclear data tables, not source code (GitHub misreads *.xs as the XS language).
+data/** linguist-detectable=false linguist-vendored
