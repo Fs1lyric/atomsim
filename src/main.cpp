@@ -7,12 +7,15 @@
 #include "nucleus.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <random>
 #include <string>
+#include <thread>
+#include <vector>
 
 namespace {
 
@@ -21,13 +24,18 @@ struct Options {
   double neutronEnergy = 0.0253e-6;  // thermal: 0.0253 eV
   int events = 100000;
   unsigned long long seed = 2026;
+  int threads = 0;      // 0 = all cores
+  std::string csvDir;   // write plot data here when set
 };
 
 void usage() {
   std::puts(
       "usage: atomsim [--target U235|U238|Pu239] [--energy MeV] [--events N] [--seed N]\n"
+      "               [--threads N] [--csv DIR]\n"
       "  --energy   incoming neutron kinetic energy in MeV (default 2.53e-8, thermal)\n"
-      "  --events   Monte Carlo fission events (default 100000)");
+      "  --events   Monte Carlo fission events (default 100000)\n"
+      "  --threads  worker threads for the Monte Carlo (default: all cores)\n"
+      "  --csv      also write the plotted data as CSV files into DIR");
 }
 
 Options parse(int argc, char** argv) {
@@ -50,6 +58,10 @@ Options parse(int argc, char** argv) {
       o.neutronEnergy = std::atof(next());
     } else if (!std::strcmp(argv[i], "--events")) {
       o.events = std::max(1, std::atoi(next()));
+    } else if (!std::strcmp(argv[i], "--threads")) {
+      o.threads = std::max(0, std::atoi(next()));
+    } else if (!std::strcmp(argv[i], "--csv")) {
+      o.csvDir = next();
     } else if (!std::strcmp(argv[i], "--seed")) {
       o.seed = std::strtoull(next(), nullptr, 10);
     } else {
@@ -193,7 +205,7 @@ void filmStrip(const FissionEvent& ev, const std::vector<TrajectoryPoint>& traj)
               nuclide(ev.heavy.Z, ev.heavy.A).c_str());
 }
 
-void oneEvent(const Compound& cn, std::mt19937_64& rng) {
+void oneEvent(const Compound& cn, std::mt19937_64& rng, std::vector<TrajectoryPoint>* trajOut) {
   section("2.2  One fission event, step by step");
   FissionEvent ev = simulateFission(cn, rng);
   const Fragment &L = ev.light, &H = ev.heavy;
@@ -209,6 +221,7 @@ void oneEvent(const Compound& cn, std::mt19937_64& rng) {
               nuclide(H.Z, H.A).c_str(), H.excitation);
 
   auto traj = coulombTrajectory(ev, 1e4);
+  if (trajOut) *trajOut = traj;
   std::printf("\n  Coulomb acceleration (relativistic two-body, RK4):\n");
   std::printf("       time (zs)     time (s)   separation (fm)   KE light   KE heavy   "
               "converted\n");
@@ -261,11 +274,15 @@ double wattBin(double lo, double hi) {
   return sum / norm;
 }
 
-void monteCarlo(const Compound& cn, int events, std::mt19937_64& rng) {
-  char title[96];
-  std::snprintf(title, sizeof title, "2.3  Monte Carlo: %d fission events", events);
+RunStats monteCarlo(const Compound& cn, int events, std::uint64_t seed, int threads) {
+  if (threads <= 0) threads = int(std::max(1u, std::thread::hardware_concurrency()));
+  auto start = std::chrono::steady_clock::now();
+  RunStats s = runMonteCarlo(cn, events, seed, threads);
+  double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  char title[128];
+  std::snprintf(title, sizeof title, "2.3  Monte Carlo: %d fission events (%.2f s, %d threads)",
+                events, seconds, threads);
   section(title);
-  RunStats s = runMonteCarlo(cn, events, rng);
   bool reference = cn.targetZ == 92 && cn.targetA == 235 && cn.neutronEnergy < 1e-3;
 
   std::printf("  quantity                          model     %s\n",
@@ -321,6 +338,59 @@ void monteCarlo(const Compound& cn, int events, std::mt19937_64& rng) {
   std::printf("  1 g of U-235 fully fissioned ≈ %.2g J ≈ %.0f t of TNT\n",
               (prompt + s.meanBetaChain) * 1.602176634e-13 * 6.02214076e23 / 235.0439,
               (prompt + s.meanBetaChain) * 1.602176634e-13 * 6.02214076e23 / 235.0439 / 4.184e9);
+  return s;
+}
+
+// Plot data for scripts/plots.py.
+void writeCsv(const std::string& dir, const RunStats& s, const std::vector<TrajectoryPoint>& traj) {
+  auto open = [&](const char* name) {
+    std::string path = dir + "/" + name;
+    FILE* f = std::fopen(path.c_str(), "w");
+    if (!f) {
+      std::fprintf(stderr, "atomsim: cannot write %s\n", path.c_str());
+      std::exit(1);
+    }
+    return f;
+  };
+  FILE* f = open("yields.csv");
+  std::fprintf(f, "A,pre_neutron,post_neutron\n");
+  for (size_t a = 60; a < 180; ++a) std::fprintf(f, "%zu,%g,%g\n", a, s.yieldPre[a], s.yieldPost[a]);
+  std::fclose(f);
+
+  f = open("multiplicity.csv");
+  static const double kMeasuredP[] = {0.032, 0.172, 0.336, 0.303, 0.129, 0.025, 0.003, 0.0};
+  std::fprintf(f, "nu,model,measured\n");
+  for (int nu = 0; nu < 8; ++nu) std::fprintf(f, "%d,%g,%g\n", nu, s.multiplicity[nu], kMeasuredP[nu]);
+  std::fclose(f);
+
+  f = open("spectrum.csv");
+  std::fprintf(f, "E_low,E_high,model,watt\n");
+  for (size_t b = 0; b < 40; ++b)
+    std::fprintf(f, "%g,%g,%g,%g\n", b * 0.25, (b + 1) * 0.25, s.neutronSpectrum[b],
+                 wattBin(b * 0.25, (b + 1) * 0.25));
+  std::fclose(f);
+
+  f = open("trajectory.csv");
+  std::fprintf(f, "time_zs,separation_fm,ke_light,ke_heavy,potential\n");
+  for (const auto& p : traj)
+    std::fprintf(f, "%g,%g,%g,%g,%g\n", p.time, p.separation, p.kineticLight, p.kineticHeavy,
+                 p.potential);
+  std::fclose(f);
+
+  f = open("hydrogen.csv");
+  std::vector<RadialState> states;
+  for (auto [n, l] : {std::pair{1, 0}, {2, 0}, {2, 1}, {3, 0}, {3, 2}})
+    states.push_back(solveHydrogenic(n, l, 1.0, phys::kHydrogenReducedMass));
+  std::fprintf(f, "r_bohr,1s,2s,2p,3s,3d\n");
+  for (double r = 0; r <= 30; r += 0.05) {
+    std::fprintf(f, "%g", r);
+    for (const auto& st : states) {
+      size_t i = size_t(r / st.step);
+      std::fprintf(f, ",%g", i < st.u.size() ? st.u[i] * st.u[i] : 0.0);
+    }
+    std::fprintf(f, "\n");
+  }
+  std::fclose(f);
 }
 
 }  // namespace
@@ -343,8 +413,10 @@ int main(int argc, char** argv) {
         cn.barrier - cn.excitation);
     return 0;
   }
-  oneEvent(cn, rng);
-  monteCarlo(cn, o.events, rng);
+  std::vector<TrajectoryPoint> traj;
+  oneEvent(cn, rng, &traj);
+  RunStats stats = monteCarlo(cn, o.events, o.seed, o.threads);
+  if (!o.csvDir.empty()) writeCsv(o.csvDir, stats, traj);
 
   heading("MODEL LIMITS");
   std::puts(

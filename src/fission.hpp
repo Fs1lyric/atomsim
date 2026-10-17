@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <random>
 #include <vector>
 
@@ -70,5 +71,9 @@ struct RunStats {
   double meanLightA = 0, meanHeavyA = 0, meanNu = 0, meanNeutronLabEnergy = 0;
   double meanNeutronKe = 0, meanNeutronBinding = 0, meanPromptGamma = 0, meanBetaChain = 0;
   double meanSpin = 0;  // per fragment, hbar
+  long neutronCount = 0;
 };
-RunStats runMonteCarlo(const Compound& cn, int events, std::mt19937_64& rng);
+
+// Runs `events` fissions on `threads` threads (0 = all cores). Deterministic in
+// `seed`: the same seed gives bit-identical results for any thread count.
+RunStats runMonteCarlo(const Compound& cn, int events, std::uint64_t seed, int threads = 0);

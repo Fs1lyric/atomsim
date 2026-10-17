@@ -6,12 +6,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        run: cmake -S . -B build -DCMAKE_CXX_FLAGS=-Werror && cmake --build build -j
+        run: cmake -S . -B build -DATOMSIM_WERROR=ON && cmake --build build -j
       - name: Tests
         run: ctest --test-dir build --output-on-failure
       - name: Run U-235 + thermal neutron
         if: always()
-        run: ./build/atomsim | tee u235.txt
+        run: mkdir -p csv && ./build/atomsim --csv csv | tee u235.txt
+      - name: Monte Carlo thread scaling
+        if: always()
+        run: |
+          nproc
+          for t in 1 2 4; do
+            ./build/atomsim --events 200000 --threads $t | grep "Monte Carlo:"
+          done
       - name: Run U-238 thermal (no fission) and fast
         if: always()
         run: |
@@ -24,4 +31,6 @@ jobs:
         if: always()
         with:
           name: output
-          path: '*.txt'
+          path: |
+            *.txt
+            csv/

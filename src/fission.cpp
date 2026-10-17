@@ -4,7 +4,9 @@
 #include "nucleus.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <thread>
 
 namespace {
 
@@ -224,49 +226,97 @@ std::vector<TrajectoryPoint> coulombTrajectory(const FissionEvent& ev, double en
   return out;
 }
 
-RunStats runMonteCarlo(const Compound& cn, int events, std::mt19937_64& rng) {
-  RunStats s;
-  s.events = events;
-  long neutronCount = 0;
-  for (int i = 0; i < events; ++i) {
-    FissionEvent ev = simulateFission(cn, rng);
-    s.meanQ += ev.q;
-    s.meanTke += ev.tke;
-    s.meanTxe += ev.light.excitation + ev.heavy.excitation;
-    s.meanLightKe += ev.light.kineticEnergy;
-    s.meanHeavyKe += ev.heavy.kineticEnergy;
-    s.meanLightA += ev.light.A;
-    s.meanHeavyA += ev.heavy.A;
-    int nu = ev.neutrons();
-    s.meanNu += nu;
-    s.multiplicity[std::min<size_t>(nu, s.multiplicity.size() - 1)] += 1;
-    for (const Fragment* f : {&ev.light, &ev.heavy}) {
-      s.yieldPre[f->A] += 1;
-      s.yieldPost[f->finalA] += 1;
-      for (size_t n = 0; n < f->neutronLabEnergies.size(); ++n) {
-        double e = f->neutronLabEnergies[n];
-        s.meanNeutronLabEnergy += e;
-        s.meanNeutronKe += f->neutronCmEnergies[n];
-        s.meanNeutronBinding += f->neutronSeparations[n];
-        s.neutronSpectrum[std::min<size_t>(size_t(e / 0.25), s.neutronSpectrum.size() - 1)] += 1;
-        ++neutronCount;
-      }
-      s.meanPromptGamma += f->gammaEnergy;
-      s.meanSpin += 0.5 * f->spin;
-      for (const auto& b : f->betaChain) s.meanBetaChain += b.q;
+namespace {
+
+// Raw sums over events; normalised once all blocks are merged.
+void accumulate(const FissionEvent& ev, RunStats& s) {
+  s.meanQ += ev.q;
+  s.meanTke += ev.tke;
+  s.meanTxe += ev.light.excitation + ev.heavy.excitation;
+  s.meanLightKe += ev.light.kineticEnergy;
+  s.meanHeavyKe += ev.heavy.kineticEnergy;
+  s.meanLightA += ev.light.A;
+  s.meanHeavyA += ev.heavy.A;
+  int nu = ev.neutrons();
+  s.meanNu += nu;
+  s.multiplicity[std::min<size_t>(nu, s.multiplicity.size() - 1)] += 1;
+  for (const Fragment* f : {&ev.light, &ev.heavy}) {
+    s.yieldPre[f->A] += 1;
+    s.yieldPost[f->finalA] += 1;
+    for (size_t n = 0; n < f->neutronLabEnergies.size(); ++n) {
+      double e = f->neutronLabEnergies[n];
+      s.meanNeutronLabEnergy += e;
+      s.meanNeutronKe += f->neutronCmEnergies[n];
+      s.meanNeutronBinding += f->neutronSeparations[n];
+      s.neutronSpectrum[std::min<size_t>(size_t(e / 0.25), s.neutronSpectrum.size() - 1)] += 1;
+      ++s.neutronCount;
     }
+    s.meanPromptGamma += f->gammaEnergy;
+    s.meanSpin += 0.5 * f->spin;
+    for (const auto& b : f->betaChain) s.meanBetaChain += b.q;
   }
+}
+
+// Averages taken per fission; the neutron energy is averaged per neutron.
+constexpr double RunStats::*kPerEvent[] = {
+    &RunStats::meanQ,          &RunStats::meanTke,         &RunStats::meanTxe,
+    &RunStats::meanLightKe,    &RunStats::meanHeavyKe,     &RunStats::meanLightA,
+    &RunStats::meanHeavyA,     &RunStats::meanNu,          &RunStats::meanNeutronKe,
+    &RunStats::meanNeutronBinding, &RunStats::meanPromptGamma, &RunStats::meanBetaChain,
+    &RunStats::meanSpin};
+
+template <size_t N>
+void addArray(std::array<double, N>& into, const std::array<double, N>& from) {
+  for (size_t i = 0; i < N; ++i) into[i] += from[i];
+}
+
+void merge(RunStats& into, const RunStats& from) {
+  for (auto field : kPerEvent) into.*field += from.*field;
+  into.meanNeutronLabEnergy += from.meanNeutronLabEnergy;
+  into.neutronCount += from.neutronCount;
+  addArray(into.yieldPre, from.yieldPre);
+  addArray(into.yieldPost, from.yieldPost);
+  addArray(into.multiplicity, from.multiplicity);
+  addArray(into.neutronSpectrum, from.neutronSpectrum);
+}
+
+// Events per independently seeded block. Blocks are the unit of parallel work.
+constexpr int kBlock = 1024;
+
+}  // namespace
+
+RunStats runMonteCarlo(const Compound& cn, int events, std::uint64_t seed, int threads) {
+  // Each block has its own RNG stream seeded from (seed, block index), and blocks
+  // are merged in index order, so the result is identical for any thread count.
+  const int blocks = (events + kBlock - 1) / kBlock;
+  std::vector<RunStats> parts(blocks);
+  std::atomic<int> next{0};
+  auto worker = [&] {
+    for (int b; (b = next++) < blocks;) {
+      std::seed_seq seq{seed, std::uint64_t(b)};
+      std::mt19937_64 rng(seq);
+      int count = std::min(kBlock, events - b * kBlock);
+      for (int i = 0; i < count; ++i) accumulate(simulateFission(cn, rng), parts[b]);
+    }
+  };
+  if (threads <= 0) threads = int(std::max(1u, std::thread::hardware_concurrency()));
+  threads = std::min(threads, blocks);
+  std::vector<std::thread> pool;
+  for (int t = 1; t < threads; ++t) pool.emplace_back(worker);
+  worker();
+  for (auto& t : pool) t.join();
+
+  RunStats s;
+  for (const auto& part : parts) merge(s, part);
+  s.events = events;
   double perEvent = 1.0 / events;
-  for (double* v : {&s.meanQ, &s.meanTke, &s.meanTxe, &s.meanLightKe, &s.meanHeavyKe,
-                    &s.meanLightA, &s.meanHeavyA, &s.meanNu, &s.meanNeutronKe,
-                    &s.meanNeutronBinding, &s.meanPromptGamma, &s.meanBetaChain, &s.meanSpin})
-    *v *= perEvent;
+  for (auto field : kPerEvent) s.*field *= perEvent;
   for (double& y : s.yieldPre) y *= perEvent;
   for (double& y : s.yieldPost) y *= perEvent;
   for (double& m : s.multiplicity) m *= perEvent;
-  if (neutronCount > 0) {
-    s.meanNeutronLabEnergy /= neutronCount;
-    for (double& n : s.neutronSpectrum) n /= neutronCount;
+  if (s.neutronCount > 0) {
+    s.meanNeutronLabEnergy /= s.neutronCount;
+    for (double& n : s.neutronSpectrum) n /= s.neutronCount;
   }
   return s;
 }
