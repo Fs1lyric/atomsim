@@ -117,7 +117,7 @@ void hydrogenAtom() {
   double fs = diracEnergyEV(2, 1.5, 1.0, muMeV) - diracEnergyEV(2, 0.5, 1.0, muMeV);
   std::printf(
       "\n  Relativistic (Dirac) correction: 1s½ %.6f eV, 2p³⁄₂ - 2p½ splitting %.4f GHz\n"
-      "  (measured 10.969 GHz; the 1.058 GHz Lamb shift is QED and is not modelled)\n",
+      "  (measured 10.969 GHz; the rest, and the 1.058 GHz Lamb shift, is QED — not modelled)\n",
       diracEnergyEV(1, 0.5, 1.0, muMeV), fs / phys::kPlanckEVs / 1e9);
 }
 
@@ -128,8 +128,10 @@ void heavyAtom(int Z, int A) {
   double be = bindingEnergy(Z, A), radius = nuclearRadius(A);
   std::printf("  Nucleus     %d protons + %d neutrons, radius R = 1.2·A^⅓ = %.2f fm\n", Z, A - Z,
               radius);
-  std::printf("  Binding     %.2f MeV (%s), %.3f MeV per nucleon; SEMF gives %.2f MeV\n", be,
-              isMeasured(Z, A) ? "AME2020" : "SEMF", be / A, semfBindingEnergy(Z, A));
+  std::printf("  Binding     %.2f MeV (%s), %.3f MeV per nucleon\n", be,
+              isMeasured(Z, A) ? "AME2020" : "model", be / A);
+  std::printf("              textbook SEMF %.2f MeV, liquid drop + shells %.2f MeV\n",
+              semfBindingEnergy(Z, A), shellBindingEnergy(Z, A));
   std::printf("  Electrons   %d in %s\n", Z, electronConfiguration(Z).c_str());
   std::printf("  Scale       atomic radius ≈ 156 pm = 1.56×10⁵ fm, ~%.0f× the nuclear radius\n",
               1.56e5 / radius);
@@ -345,7 +347,7 @@ int main(int argc, char** argv) {
   heading("MODEL LIMITS");
   std::puts(
       "  Exact: hydrogen bound states, Coulomb acceleration, conservation laws.\n"
-      "  Semi-empirical: fragment masses (liquid drop, no shell corrections), barrier,\n"
+      "  Semi-empirical: fragment masses (Myers-Swiatecki, spherical shells), barrier,\n"
       "  mass-yield modes and scission distance (fitted to data). Not modelled: QED,\n"
       "  pre-scission dynamics (needs time-dependent DFT), delayed neutrons, half-lives.");
   return 0;

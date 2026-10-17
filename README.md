@@ -43,8 +43,8 @@ ctest --test-dir build                   # physics checks
    Watt spectrum) and the energy budget, all compared with measured U-235(n_th,f) data.
 
 ## Limits (honest list)
-- Fragment masses use the liquid drop without shell corrections, so per-event Q-values
-  are off by a few MeV.
+- Fragment masses use the Myers–Swiatecki liquid drop with spherical shell corrections;
+  strongly deformed fragments are still off by a few MeV.
 - Mass-yield modes and the effective scission distance (1.76 fm·(A_L^⅓+A_H^⅓)) are
   fitted to data, not derived. Deriving them needs time-dependent density-functional
   theory on a supercomputer.

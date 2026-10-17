@@ -7,21 +7,25 @@
 // Bethe-Weizsäcker semi-empirical mass formula (liquid drop + pairing).
 double semfBindingEnergy(int Z, int A);
 
+// Myers-Swiatecki (1966) liquid drop with their analytic shell correction:
+// the mass model used for fission fragments, which sit near the N = 82 and
+// Z = 50 shells where the plain SEMF is off by up to 10 MeV.
+double shellBindingEnergy(int Z, int A);
+
 // Measured mass excess from AME2020, for the handful of nuclides tabulated here.
 std::optional<double> measuredMassExcess(int Z, int A);
 
-// Measured binding energy when tabulated, otherwise the SEMF value.
+// Measured binding energy when tabulated, otherwise shellBindingEnergy.
 double bindingEnergy(int Z, int A);
 bool isMeasured(int Z, int A);
 
 // Neutron separation energy S_n of nucleus (Z, A): energy to remove one neutron.
 double neutronSeparation(int Z, int A);
-double semfNeutronSeparation(int Z, int A);
 
-// Atomic-mass Q-value for beta-minus decay (Z, A) -> (Z+1, A), from the SEMF.
+// Atomic-mass Q-value for beta-minus decay (Z, A) -> (Z+1, A).
 double betaQ(int Z, int A);
 
-// Nuclear (not atomic) rest mass from the SEMF, MeV/c^2.
+// Nuclear (not atomic) rest mass, MeV/c^2.
 double nuclearMass(int Z, int A);
 
 // Sharp-surface radius 1.2 A^(1/3) fm.

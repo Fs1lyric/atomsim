@@ -10,14 +10,18 @@ jobs:
       - name: Tests
         run: ctest --test-dir build --output-on-failure
       - name: Run U-235 + thermal neutron
+        if: always()
         run: ./build/atomsim | tee u235.txt
       - name: Run U-238 thermal (no fission) and fast
+        if: always()
         run: |
           ./build/atomsim --target U238 | tail -12
           ./build/atomsim --target U238 --energy 2 --events 20000 | tee u238-fast.txt | tail -60
       - name: Run Pu-239
+        if: always()
         run: ./build/atomsim --target Pu239 --events 20000 | tail -60
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: output
           path: '*.txt'

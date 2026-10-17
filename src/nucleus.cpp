@@ -17,6 +17,31 @@ constexpr double kPairing = 11.18;
 constexpr double kMSSurface = 17.9439;
 constexpr double kMSKappa = 1.7826;
 
+// Myers & Swiatecki, Nucl. Phys. 81, 1 (1966).
+constexpr double kMSVolume = 15.677;
+constexpr double kMSSurface66 = 18.56;
+constexpr double kMSSymmetry = 1.79;
+constexpr double kMSCoulomb = 0.717;
+constexpr double kMSDiffuseness = 1.21129;
+constexpr double kMSPairing = 11.0;
+constexpr double kMSShellC = 5.8;
+constexpr double kMSShellSmall = 0.325;
+
+// F(n): how far n nucleons sit from a closed shell. Zero at magic numbers,
+// largest mid-shell (the gap between a linear interpolation of 3/5 n^(5/3)
+// across the shell and the function itself).
+double shellF(int n) {
+  static const int kMagic[] = {0, 2, 8, 14, 28, 50, 82, 126, 184};
+  auto p53 = [](double x) { return std::pow(x, 5.0 / 3.0); };
+  for (size_t i = 1; i < sizeof(kMagic) / sizeof(kMagic[0]); ++i) {
+    if (n > kMagic[i]) continue;
+    double lo = kMagic[i - 1], hi = kMagic[i];
+    double q = 0.6 * (p53(hi) - p53(lo)) / (hi - lo);
+    return q * (n - lo) - 0.6 * (p53(n) - p53(lo));
+  }
+  return 0.0;
+}
+
 struct MassEntry {
   int Z, A;
   double excessKeV;
@@ -42,6 +67,17 @@ double semfBindingEnergy(int Z, int A) {
   return be;
 }
 
+double shellBindingEnergy(int Z, int A) {
+  int N = A - Z;
+  double I = double(N - Z) / A, s = 1 - kMSSymmetry * I * I, a3 = std::cbrt(double(A));
+  double energy = -kMSVolume * s * A + kMSSurface66 * s * a3 * a3 + kMSCoulomb * Z * Z / a3 -
+                  kMSDiffuseness * double(Z) * Z / A;
+  if (A % 2 == 0) energy += (Z % 2 == 0 ? -1 : 1) * kMSPairing / std::sqrt(double(A));
+  energy += kMSShellC * ((shellF(N) + shellF(Z)) / std::pow(A / 2.0, 2.0 / 3.0) -
+                         kMSShellSmall * a3);
+  return -energy;
+}
+
 std::optional<double> measuredMassExcess(int Z, int A) {
   for (const auto& e : kMassTable)
     if (e.Z == Z && e.A == A) return e.excessKeV / 1000.0;
@@ -53,21 +89,17 @@ bool isMeasured(int Z, int A) { return measuredMassExcess(Z, A).has_value(); }
 double bindingEnergy(int Z, int A) {
   if (auto excess = measuredMassExcess(Z, A))
     return Z * phys::kExcessHydrogen + (A - Z) * phys::kExcessNeutron - *excess;
-  return semfBindingEnergy(Z, A);
+  return shellBindingEnergy(Z, A);
 }
 
 double neutronSeparation(int Z, int A) { return bindingEnergy(Z, A) - bindingEnergy(Z, A - 1); }
 
-double semfNeutronSeparation(int Z, int A) {
-  return semfBindingEnergy(Z, A) - semfBindingEnergy(Z, A - 1);
-}
-
 double betaQ(int Z, int A) {
-  return phys::kNeutronMinusHydrogen + semfBindingEnergy(Z + 1, A) - semfBindingEnergy(Z, A);
+  return phys::kNeutronMinusHydrogen + bindingEnergy(Z + 1, A) - bindingEnergy(Z, A);
 }
 
 double nuclearMass(int Z, int A) {
-  return Z * phys::kMassProton + (A - Z) * phys::kMassNeutron - semfBindingEnergy(Z, A);
+  return Z * phys::kMassProton + (A - Z) * phys::kMassNeutron - bindingEnergy(Z, A);
 }
 
 double nuclearRadius(int A) { return 1.2 * std::cbrt(static_cast<double>(A)); }

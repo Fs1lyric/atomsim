@@ -59,16 +59,17 @@ int sampleHeavyMass(int A, std::mt19937_64& rng) {
 // Emits neutrons while the excitation exceeds the separation energy. Neutron
 // energies in the fragment frame follow Weisskopf's evaporation spectrum
 // eps * exp(-eps / T), with the residual-nucleus temperature from the Fermi-gas
-// level density a = A / 8 MeV^-1. What remains goes out as gamma rays.
+// level density a = A / 11 MeV^-1 used for fission fragments by Madland & Nix
+// (Nucl. Sci. Eng. 81, 1982). What remains goes out as gamma rays.
 void evaporate(Fragment& f, std::mt19937_64& rng) {
   std::uniform_real_distribution<double> uniform(0.0, 1.0);
   double e = f.excitation;
   int A = f.A;
   for (;;) {
-    double sn = semfNeutronSeparation(f.Z, A);
+    double sn = neutronSeparation(f.Z, A);
     if (e <= sn) break;
     double maxEps = e - sn;
-    double temperature = std::sqrt(maxEps / ((A - 1) / 8.0));
+    double temperature = std::sqrt(maxEps / ((A - 1) / 11.0));
     double eps;
     do {  // Gamma(2, T) by the product of two uniforms, truncated at maxEps
       eps = -temperature * std::log((1.0 - uniform(rng)) * (1.0 - uniform(rng)));
@@ -131,7 +132,7 @@ FissionEvent simulateFission(const Compound& cn, std::mt19937_64& rng) {
   H.mass = nuclearMass(H.Z, H.A);
 
   // Energy available: ground-state Q-value plus the compound excitation.
-  ev.q = semfBindingEnergy(L.Z, L.A) + semfBindingEnergy(H.Z, H.A) - bindingEnergy(cn.Z, cn.A);
+  ev.q = bindingEnergy(L.Z, L.A) + bindingEnergy(H.Z, H.A) - bindingEnergy(cn.Z, cn.A);
   double available = ev.q + cn.excitation;
 
   // TKE is the Coulomb energy of the two charges at scission.

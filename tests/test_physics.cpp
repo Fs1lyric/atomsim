@@ -39,10 +39,13 @@ static void testHydrogen() {
     CHECK_NEAR(s.meanRadius, (3.0 * n * n - l * (l + 1)) / (2.0 * mu), 1e-3);
   }
   CHECK_NEAR(schrodingerEnergyEV(1, 1.0, mu), -13.5983, 1e-3);
-  // 2p3/2 - 2p1/2 fine-structure splitting: 10.969 GHz
-  double split = diracEnergyEV(2, 1.5, 1.0, phys::kHydrogenReducedMassMeV) -
-                 diracEnergyEV(2, 0.5, 1.0, phys::kHydrogenReducedMassMeV);
-  CHECK_NEAR(split / phys::kPlanckEVs / 1e9, 10.969, 0.02);
+  // 2p3/2 - 2p1/2 Dirac splitting: mu c^2 alpha^4 / 32 to leading order
+  // (the measured 10.969 GHz adds ~0.025 GHz of QED, which is not modelled).
+  const double muMeV = phys::kHydrogenReducedMassMeV;
+  double split = diracEnergyEV(2, 1.5, 1.0, muMeV) - diracEnergyEV(2, 0.5, 1.0, muMeV);
+  double leading = muMeV * 1e6 * std::pow(phys::kAlpha, 4) / 32;
+  CHECK(std::fabs(split / leading - 1) < 1e-4, "split %.6g eV vs %.6g eV", split, leading);
+  CHECK(std::fabs(split / phys::kPlanckEVs / 1e9 - 10.969) < 0.04, "within QED of measured");
 }
 
 static void testNucleus() {
@@ -52,6 +55,11 @@ static void testNucleus() {
     double rel = std::fabs(semfBindingEnergy(Z, A) / bindingEnergy(Z, A) - 1);
     CHECK(rel < 0.01, "SEMF off by %.2f%% for Z=%d A=%d", 100 * rel, Z, A);
   }
+  // Fragment mass model vs AME2020 (doubly magic 132Sn, 140Xe, 96Sr, 208Pb).
+  CHECK_NEAR(shellBindingEnergy(50, 132), 1102.85, 2.0);
+  CHECK_NEAR(shellBindingEnergy(54, 140), 1160.7, 2.0);
+  CHECK_NEAR(shellBindingEnergy(38, 96), 818.0, 2.0);
+  CHECK_NEAR(shellBindingEnergy(82, 208), 1636.43, 2.0);
   CHECK_NEAR(neutronSeparation(92, 236), 6.5455, 0.002);
   CHECK_NEAR(neutronSeparation(92, 239), 4.8064, 0.002);
   CHECK_NEAR(neutronSeparation(94, 240), 6.534, 0.002);
