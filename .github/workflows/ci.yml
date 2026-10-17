@@ -112,3 +112,19 @@ jobs:
           ./build/extract_endf ENDF-B-VIII.0_neutrons/n-092_U_235.endf u235.xs
           ./build/extract_endf ENDF-B-VIII.0_neutrons/n-092_U_238.endf u238.xs
           diff u235.xs data/u235.xs && diff u238.xs data/u238.xs && echo "byte-identical"
+
+  check-live-site:
+    needs: deploy-web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open the deployed page in headless Chrome
+        run: |
+          sleep 20
+          google-chrome --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader \
+            --window-size=1280,720 --virtual-time-budget=20000 \
+            --screenshot=$PWD/live.png https://fs1lyric.github.io/atomsim/
+          ls -la live.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-site
+          path: live.png
