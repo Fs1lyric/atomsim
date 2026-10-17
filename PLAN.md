@@ -52,5 +52,5 @@ Runtime budget: the surface is the expensive step (minutes in CI, cached). Monte
 stays under a minute.
 
 ## Status
-- [x] Current version: all checks green (commit b71ee6a)
+- [x] All averaged observables within 5% of experiment, using full AME2020 masses (ν 2.33 vs 2.41)
 - [ ] Phase 1 — start here
