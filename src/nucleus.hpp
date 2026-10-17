@@ -1,6 +1,13 @@
 #pragma once
 
 #include <optional>
+#include <string>
+
+// Folder holding the nuclear data files (data/ in the repository). Starts as the
+// build-time location; programs call useDataDirectoryIfPresent with the folder
+// next to their executable so a downloaded copy finds its own data.
+const std::string& dataDirectory();
+bool useDataDirectoryIfPresent(const std::string& dir);
 
 // Nuclear binding energies, in MeV, positive for bound nuclei.
 

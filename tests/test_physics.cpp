@@ -197,3 +197,10 @@ TEST(ChainReaction, GrowsAboveCriticalAndDiesBelow) {
   for (const Neutron& n : hot.neutrons())
     EXPECT_LE(n.x * n.x + n.y * n.y + n.z * n.z, hot.radius() * hot.radius() * (1 + 1e-9));
 }
+
+TEST(Physics, DataDirectoryOnlyMovesToAFolderThatHasTheData) {
+  const std::string before = dataDirectory();
+  EXPECT_FALSE(useDataDirectoryIfPresent("/no/such/folder"));
+  EXPECT_EQ(dataDirectory(), before);
+  EXPECT_TRUE(useDataDirectoryIfPresent(before));
+}

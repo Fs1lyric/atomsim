@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <unordered_map>
@@ -52,6 +53,11 @@ struct MassEntry {
   bool extrapolated;  // marked '#' in AME2020: from systematics, not measured
 };
 
+std::string& dataDirectoryStorage() {
+  static std::string dir = ATOMSIM_DATA_DIR;
+  return dir;
+}
+
 // Reads a fixed-width numeric field; false if it holds no number.
 bool field(const std::string& line, size_t pos, size_t len, double& out) {
   if (line.size() < pos + len) return false;
@@ -70,10 +76,10 @@ bool field(const std::string& line, size_t pos, size_t len, double& out) {
 // 1000 Z + A. Columns follow the Fortran format given in the file header.
 const std::unordered_map<int, MassEntry>& massTable() {
   static const std::unordered_map<int, MassEntry> table = [] {
-    const char* path = ATOMSIM_DATA_DIR "/mass_1.mas20";
+    const std::string path = dataDirectory() + "/mass_1.mas20";
     std::ifstream in(path);
     if (!in) {
-      std::fprintf(stderr, "atomsim: cannot open AME2020 mass table %s\n", path);
+      std::fprintf(stderr, "atomsim: cannot open AME2020 mass table %s\n", path.c_str());
       std::exit(1);
     }
     std::unordered_map<int, MassEntry> t;
@@ -109,6 +115,15 @@ double shellBindingEnergy(int Z, int A) {
   energy += kMSShellC * ((shellF(N) + shellF(Z)) / std::pow(A / 2.0, 2.0 / 3.0) -
                          kMSShellSmall * a3);
   return -energy;
+}
+
+const std::string& dataDirectory() { return dataDirectoryStorage(); }
+
+bool useDataDirectoryIfPresent(const std::string& dir) {
+  std::error_code ec;
+  if (!std::filesystem::exists(std::filesystem::path(dir) / "mass_1.mas20", ec)) return false;
+  dataDirectoryStorage() = dir;
+  return true;
 }
 
 std::optional<double> measuredMassExcess(int Z, int A) {

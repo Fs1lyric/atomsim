@@ -1,0 +1,72 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, name: linux-x64 }
+          - { os: windows-latest, name: windows-x64 }
+          - { os: macos-14, name: macos-arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+            libxi-dev libgl1-mesa-dev
+      - name: Build
+        run: |
+          cmake -S . -B build -DATOMSIM_VIZ=ON -DATOMSIM_TESTS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          cmake --build build --config Release -j --target atomsim-viz atomsim
+      - name: Package
+        shell: bash
+        run: |
+          dir=atomsim-${{ matrix.name }}
+          mkdir -p $dir/data
+          cp data/mass_1.mas20 data/u235.xs data/u238.xs $dir/data/
+          cp README.md $dir/
+          if [ "$RUNNER_OS" = Windows ]; then
+            cp build/Release/atomsim-viz.exe build/Release/atomsim.exe $dir/
+            7z a -bd $dir.zip $dir > /dev/null
+          else
+            cp build/atomsim-viz build/atomsim $dir/
+            zip -qr $dir.zip $dir
+          fi
+      - name: Smoke test (text tool reads the bundled data)
+        shell: bash
+        run: |
+          cd atomsim-${{ matrix.name }}
+          exe=./atomsim; [ "$RUNNER_OS" = Windows ] && exe=./atomsim.exe
+          $exe --events 2000 | grep -E "Monte Carlo|prompt neutrons per fission"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: atomsim-*.zip
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist/*.zip --repo "${{ github.repository }}" \
+            --title "atomsim ${{ github.ref_name }}" \
+            --notes "Download the zip for your system, unzip it, and run atomsim-viz. Keep the data folder next to the program."

@@ -586,6 +586,7 @@ void frameThunk() { gApp->frame(); }
 }  // namespace
 
 int main(int argc, char** argv) {
+  useDataDirectoryIfPresent(std::string(GetApplicationDirectory()) + "data");
   int shotScene = -1, shotFrames = 0, shotOrbital = 0;
   const char* shotPath = nullptr;
   for (int i = 1; i < argc; ++i)

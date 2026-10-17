@@ -1,6 +1,7 @@
 #include "chain.hpp"
 
 #include "constants.hpp"
+#include "nucleus.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -267,11 +268,11 @@ double NuclideData::sampleMuCm(double e, std::mt19937_64& rng) const {
 
 // Watt parameters: ENDF/B-VII fits at ~1 MeV incident energy.
 const NuclideData& u235Data() {
-  static const NuclideData d = NuclideData::load(ATOMSIM_DATA_DIR "/u235.xs", 0.988, 2.249);
+  static const NuclideData d = NuclideData::load(dataDirectory() + "/u235.xs", 0.988, 2.249);
   return d;
 }
 const NuclideData& u238Data() {
-  static const NuclideData d = NuclideData::load(ATOMSIM_DATA_DIR "/u238.xs", 0.88111, 3.4005);
+  static const NuclideData d = NuclideData::load(dataDirectory() + "/u238.xs", 0.88111, 3.4005);
   return d;
 }
 

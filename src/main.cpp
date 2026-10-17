@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <random>
 #include <string>
 #include <thread>
@@ -396,6 +397,7 @@ void writeCsv(const std::string& dir, const RunStats& s, const std::vector<Traje
 }  // namespace
 
 int main(int argc, char** argv) {
+  useDataDirectoryIfPresent((std::filesystem::path(argv[0]).parent_path() / "data").string());
   Options o = parse(argc, argv);
   std::mt19937_64 rng(o.seed);
   Compound cn = formCompound(o.targetZ, o.targetA, o.neutronEnergy);

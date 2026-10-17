@@ -8,7 +8,12 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 # Warnings apply to our own targets only, not to fetched dependencies.
 option(ATOMSIM_WERROR "Treat warnings as errors" OFF)
-set(ATOMSIM_WARNINGS -Wall -Wextra -Wpedantic $<$<BOOL:${ATOMSIM_WERROR}>:-Werror>)
+if(MSVC)
+  set(ATOMSIM_WARNINGS /W3 /utf-8 $<$<BOOL:${ATOMSIM_WERROR}>:/WX>)
+  add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+else()
+  set(ATOMSIM_WARNINGS -Wall -Wextra -Wpedantic $<$<BOOL:${ATOMSIM_WERROR}>:-Werror>)
+endif()
 
 set(ATOMSIM_DATA_DIR "${CMAKE_SOURCE_DIR}/data" CACHE STRING "Where the nuclear data files live at run time")
 
