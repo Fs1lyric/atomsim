@@ -9,6 +9,9 @@ jobs:
         run: cmake -S . -B build -DATOMSIM_WERROR=ON && cmake --build build -j
       - name: Tests
         run: ctest --test-dir build --output-on-failure
+      - name: Benchmark numbers
+        if: always()
+        run: ./build/test_physics --gtest_filter='ChainReaction.*' | grep -E "info|OK|FAILED"
       - name: Run U-235 + thermal neutron
         if: always()
         run: mkdir -p csv && ./build/atomsim --csv csv | tee u235.txt
