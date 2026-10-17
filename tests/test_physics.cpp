@@ -161,29 +161,38 @@ TEST(Physics, MonteCarloIsDeterministicAcrossThreadCounts) {
   EXPECT_NE(runMonteCarlo(cn, 5000, 4, 4).meanTke, one.meanTke) << "seed must matter";
 }
 
-// Bare U-235 sphere. Measured: ~52 kg (Godiva-type experiments; LA-12808).
-TEST(ChainReaction, CriticalMassMatchesMeasurement) {
-  Material u = uranium235();
-  EXPECT_NEAR(u.neutronSpeed, 1.95e9, 0.02e9);  // 2 MeV neutron
-  double mass = criticalMass(u, 1);
-  std::printf("[ info ] bare U-235 critical mass %.1f kg, radius %.2f cm\n", mass,
-              sphereRadius(u, mass));
-  EXPECT_NEAR(mass, 52.0, 0.2 * 52.0);
-  EXPECT_LT(multiplicationFactor(u, 20, 20000, 2), 0.9);
-  EXPECT_GT(multiplicationFactor(u, 100, 20000, 3), 1.1);
+// Godiva (ICSBEP HEU-MET-FAST-001): a bare 52.42 kg sphere of 93.7% U-235
+// metal at 18.74 g/cm^3 is exactly critical.
+TEST(ChainReaction, ReproducesGodivaBenchmark) {
+  EXPECT_NEAR(neutronSpeed(2.0), 1.95e9, 0.01e9);
+  Material g = godiva();
+  EXPECT_NEAR(sphereRadius(g, 52.42), 8.7407, 0.01);
+  double k = multiplicationFactor(g, 52.42, 20000, 1);
+  double mass = criticalMass(g, 2);
+  std::printf("[ info ] Godiva k_eff %.4f (benchmark 1.0000), critical mass %.2f kg (52.42)\n",
+              k, mass);
+  EXPECT_NEAR(k, 1.0, 0.015);
+  EXPECT_NEAR(mass, 52.42, 0.05 * 52.42);
+}
+
+TEST(ChainReaction, NaturalUraniumNeverGoesCritical) {
+  // Fast fission in U-238 needs > 1 MeV, and inelastic scattering drains that.
+  EXPECT_LT(multiplicationFactor(uranium(0.0072), 2000, 2000, 3), 0.5);
 }
 
 TEST(ChainReaction, GrowsAboveCriticalAndDiesBelow) {
-  Material u = uranium235();
-  ChainReaction hot(u, 100, 4), cold(u, 15, 5);
+  Material g = godiva();
+  ChainReaction hot(g, 90, 4), cold(g, 20, 5);
   hot.inject(500);
   cold.inject(500);
-  for (int i = 0; i < 200; ++i) {  // 200 ns
+  for (int i = 0; i < 300; ++i) {  // 300 ns
     hot.advance(1e-9);
     cold.advance(1e-9);
   }
-  EXPECT_GT(hot.population(), 5000) << "100 kg must run away";
-  EXPECT_LT(cold.population(), 50) << "15 kg must fizzle";
+  std::printf("[ info ] after 300 ns: 90 kg -> %.3g neutrons, 20 kg -> %.3g\n",
+              hot.population(), cold.population());
+  EXPECT_GT(hot.population(), 5000) << "90 kg must run away";
+  EXPECT_LT(cold.population(), 50) << "20 kg must fizzle";
   EXPECT_GT(hot.fissions(), cold.fissions());
   for (const Neutron& n : hot.neutrons())
     EXPECT_LE(n.x * n.x + n.y * n.y + n.z * n.z, hot.radius() * hot.radius() * (1 + 1e-9));
