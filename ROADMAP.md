@@ -7,7 +7,7 @@ microscopic methods (time-dependent DFT) need supercomputers. The target here is
 method used by real fission codes (Möller/Randrup, FREYA, CGMF): macroscopic-microscopic
 energies, Langevin dynamics and Hauser–Feshbach decay.
 
-Rules: all builds and tests run in GitHub Actions, never locally. Write the test first,
+Workflow: write the test first,
 watch it fail in CI, then implement. Each phase ships on its own and keeps CI green.
 
 ## Current fitted inputs, and what replaces each one

@@ -71,7 +71,7 @@ tools/         extract_endf turns 50 MB of ENDF-6 evaluations into 230 KB of tab
 
 - The fission mass distribution (Brosa modes) and the effective scission distance are
   fitted to data, not derived. Deriving them needs Langevin dynamics on a computed
-  potential-energy surface; `PLAN.md` describes how.
+  potential-energy surface; `ROADMAP.md` describes how.
 - Below 25 keV, transport uses the 25 keV cross-sections. Resolved resonances are not
   reconstructed, which matters little for fast systems like Godiva.
 - Not modelled: QED, delayed neutrons, half-lives, thermal-neutron reactors.
