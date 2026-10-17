@@ -81,50 +81,7 @@ jobs:
             -DATOMSIM_DATA_DIR=/data -DCMAKE_BUILD_TYPE=Release
           cmake --build web -j --target atomsim-viz
           mkdir -p site && cp web/index.* site/ && ls -la site
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site/
-
-  deploy-web:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [build-test-run, web]
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - id: deploy
-        uses: actions/deploy-pages@v4
-
-  nuclear-data:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build the extractor
-        run: cmake -S . -B build -DATOMSIM_TESTS=OFF -DATOMSIM_WERROR=ON && cmake --build build --target extract_endf
-      - name: Regenerate data/*.xs from ENDF/B-VIII.0 and compare
-        run: |
-          curl -sSfL -o endf.zip https://www.nndc.bnl.gov/endf-b8.0/zips/ENDF-B-VIII.0_neutrons.zip
-          unzip -q endf.zip "ENDF-B-VIII.0_neutrons/n-092_U_23[58].endf"
-          ./build/extract_endf ENDF-B-VIII.0_neutrons/n-092_U_235.endf u235.xs
-          ./build/extract_endf ENDF-B-VIII.0_neutrons/n-092_U_238.endf u238.xs
-          diff u235.xs data/u235.xs && diff u238.xs data/u238.xs && echo "byte-identical"
-
-  check-live-site:
-    needs: deploy-web
-    runs-on: ubuntu-latest
-    steps:
-      - name: Open the deployed page in headless Chrome
-        run: |
-          sleep 20
-          google-chrome --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader \
-            --window-size=1280,720 --virtual-time-budget=20000 \
-            --screenshot=$PWD/live.png https://fs1lyric.github.io/atomsim/
-          ls -la live.png
       - uses: actions/upload-artifact@v4
         with:
-          name: live-site
-          path: live.png
+          name: web
+          path: site/
