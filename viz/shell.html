@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>atomsim</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #090b14; color: #e2e6f0;
+               font: 14px system-ui, sans-serif; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #status { position: fixed; inset: 0; display: grid; place-items: center; }
+</style>
+</head>
+<body>
+<div id="status">Loading physics…</div>
+<canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+<script>
+  var Module = {
+    canvas: document.getElementById('canvas'),
+    setStatus: function (s) { document.getElementById('status').style.display = s ? 'grid' : 'none'; },
+  };
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

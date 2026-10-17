@@ -37,3 +37,48 @@ jobs:
           path: |
             *.txt
             csv/
+
+  viz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install X11 and software OpenGL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+            libxi-dev libgl1-mesa-dev libgl1-mesa-dri xvfb
+      - name: Build
+        run: |
+          cmake -S . -B build -DATOMSIM_VIZ=ON -DATOMSIM_TESTS=OFF -DATOMSIM_WERROR=ON
+          cmake --build build -j --target atomsim-viz
+      - name: Screenshots
+        run: |
+          mkdir -p shots && cd shots
+          run() { xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 ../build/atomsim-viz --screenshot "$@"; }
+          run 1 atom.png 120
+          run 2 fission-split.png 330
+          run 2 fission-after.png 560
+          run 3 chain.png 240
+          ls -la
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: shots/*.png
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+      - name: Build WebAssembly
+        run: |
+          emcmake cmake -S . -B web -DATOMSIM_VIZ=ON -DATOMSIM_TESTS=OFF -DPLATFORM=Web \
+            -DATOMSIM_DATA_DIR=/data -DCMAKE_BUILD_TYPE=Release
+          cmake --build web -j --target atomsim-viz
+          mkdir -p site && cp web/index.* site/ && ls -la site
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: site/
