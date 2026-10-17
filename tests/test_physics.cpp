@@ -1,5 +1,6 @@
 // Physics checks: conservation laws, textbook values, and agreement with
 // measured U-235(n_th,f) data. Each bound is the accuracy the model claims.
+#include "chain.hpp"
 #include "constants.hpp"
 #include "electrons.hpp"
 #include "fission.hpp"
@@ -158,4 +159,32 @@ TEST(Physics, MonteCarloIsDeterministicAcrossThreadCounts) {
   EXPECT_EQ(one.neutronCount, many.neutronCount);
   EXPECT_EQ(one.yieldPre, many.yieldPre);
   EXPECT_NE(runMonteCarlo(cn, 5000, 4, 4).meanTke, one.meanTke) << "seed must matter";
+}
+
+// Bare U-235 sphere. Measured: ~52 kg (Godiva-type experiments; LA-12808).
+TEST(ChainReaction, CriticalMassMatchesMeasurement) {
+  Material u = uranium235();
+  EXPECT_NEAR(u.neutronSpeed, 1.95e9, 0.02e9);  // 2 MeV neutron
+  double mass = criticalMass(u, 1);
+  std::printf("[ info ] bare U-235 critical mass %.1f kg, radius %.2f cm\n", mass,
+              sphereRadius(u, mass));
+  EXPECT_NEAR(mass, 52.0, 0.2 * 52.0);
+  EXPECT_LT(multiplicationFactor(u, 20, 20000, 2), 0.9);
+  EXPECT_GT(multiplicationFactor(u, 100, 20000, 3), 1.1);
+}
+
+TEST(ChainReaction, GrowsAboveCriticalAndDiesBelow) {
+  Material u = uranium235();
+  ChainReaction hot(u, 100, 4), cold(u, 15, 5);
+  hot.inject(500);
+  cold.inject(500);
+  for (int i = 0; i < 200; ++i) {  // 200 ns
+    hot.advance(1e-9);
+    cold.advance(1e-9);
+  }
+  EXPECT_GT(hot.population(), 5000) << "100 kg must run away";
+  EXPECT_LT(cold.population(), 50) << "15 kg must fizzle";
+  EXPECT_GT(hot.fissions(), cold.fissions());
+  for (const Neutron& n : hot.neutrons())
+    EXPECT_LE(n.x * n.x + n.y * n.y + n.z * n.z, hot.radius() * hot.radius() * (1 + 1e-9));
 }

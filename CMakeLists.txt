@@ -12,7 +12,8 @@ set(ATOMSIM_WARNINGS -Wall -Wextra -Wpedantic $<$<BOOL:${ATOMSIM_WERROR}>:-Werro
 
 find_package(Threads REQUIRED)
 
-add_library(physics src/hydrogen.cpp src/nucleus.cpp src/electrons.cpp src/fission.cpp)
+add_library(physics src/hydrogen.cpp src/nucleus.cpp src/electrons.cpp src/fission.cpp
+            src/chain.cpp)
 target_include_directories(physics PUBLIC src)
 target_link_libraries(physics PUBLIC Threads::Threads)
 target_compile_options(physics PRIVATE ${ATOMSIM_WARNINGS})
