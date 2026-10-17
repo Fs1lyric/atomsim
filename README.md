@@ -48,5 +48,6 @@ ctest --test-dir build                   # physics checks
 - Mass-yield modes and the effective scission distance (1.76 fm·(A_L^⅓+A_H^⅓)) are
   fitted to data, not derived. Deriving them needs time-dependent density-functional
   theory on a supercomputer.
-- Not modelled: QED (Lamb shift), the sawtooth in excitation sharing, delayed neutrons,
-  half-lives, and angular momentum.
+- Fragment spins (mean 7ħ) use a rigid-rotor moment of inertia. Not modelled: QED (Lamb
+  shift), the sawtooth in excitation sharing, delayed neutrons,
+  and half-lives.

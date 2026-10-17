@@ -228,8 +228,9 @@ void oneEvent(const Compound& cn, std::mt19937_64& rng) {
       std::printf("    from %-6s S_n %5.2f MeV, %5.2f MeV in fragment frame, %5.2f MeV lab\n",
                   nuclide(f->Z, f->A - int(n)).c_str(), f->neutronSeparations[n],
                   f->neutronCmEnergies[n], f->neutronLabEnergies[n]);
-    std::printf("    %-6s then sheds %.2f MeV as prompt γ rays → %s\n",
-                nuclide(f->Z, f->A).c_str(), f->gammaEnergy, nuclide(f->Z, f->finalA).c_str());
+    std::printf("    %-6s spins at %dħ (%.2f MeV rotational), sheds %.2f MeV as prompt γ → %s\n",
+                nuclide(f->Z, f->A).c_str(), f->spin, f->rotationalEnergy, f->gammaEnergy,
+                nuclide(f->Z, f->finalA).c_str());
   }
   std::printf("  %d neutrons released — each can split another nucleus (chain reaction).\n",
               ev.neutrons());
@@ -280,6 +281,7 @@ void monteCarlo(const Compound& cn, int events, std::mt19937_64& rng) {
   row("mean heavy fragment mass", s.meanHeavyA, "139.6");
   row("mean neutron lab energy (MeV)", s.meanNeutronLabEnergy, "2.0");
   row("prompt γ energy (MeV)", s.meanPromptGamma, "6.6–6.9");
+  row("mean fragment spin (ħ)", s.meanSpin, "≈7     (Wilhelmy 1972)");
 
   std::printf("\n  Fragment mass yield (pre-neutron, %% per fission, 2-mass bins):\n");
   double peak = 0;

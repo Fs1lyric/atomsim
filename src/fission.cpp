@@ -36,7 +36,24 @@ constexpr double kChargeWidth = 0.56;
 constexpr double kScissionRadius = 1.76;
 constexpr double kTkeWidth = 8.0;  // MeV, shape fluctuations at scission
 
+// Fragment spins follow P(J) ∝ (2J+1) exp(-J(J+1) / 2B²). B = 6 gives the
+// measured mean fragment spin of ~7 hbar (Wilhelmy et al., Phys. Rev. C 5, 1972).
+constexpr double kSpinCutoff = 6.0;
+
 double cbrtA(int A) { return std::cbrt(static_cast<double>(A)); }
+
+// Samples the spin and the rotational energy of a rigid spherical rotor,
+// hbar^2 J(J+1) / 2I with I = (2/5) A m R^2. That energy cannot be carried off by
+// neutrons, which remove little angular momentum, so it is left for the gammas.
+void spinUp(Fragment& f, std::mt19937_64& rng) {
+  std::uniform_real_distribution<double> uniform(0.0, 1.0);
+  double jj = -2 * kSpinCutoff * kSpinCutoff * std::log(1.0 - uniform(rng));  // J(J+1)
+  f.spin = int(std::lround((std::sqrt(1 + 4 * jj) - 1) / 2));
+  double radius = nuclearRadius(f.A);
+  double inertia = 0.4 * f.A * phys::kAtomicMassUnit * radius * radius;  // MeV fm^2 / c^2
+  double rotational = phys::kHbarC * phys::kHbarC * f.spin * (f.spin + 1) / (2 * inertia);
+  f.rotationalEnergy = std::min(rotational, f.excitation);
+}
 
 int sampleHeavyMass(int A, std::mt19937_64& rng) {
   std::uniform_real_distribution<double> uniform(0.0, 1.0);
@@ -63,7 +80,7 @@ int sampleHeavyMass(int A, std::mt19937_64& rng) {
 // (Nucl. Sci. Eng. 81, 1982). What remains goes out as gamma rays.
 void evaporate(Fragment& f, std::mt19937_64& rng) {
   std::uniform_real_distribution<double> uniform(0.0, 1.0);
-  double e = f.excitation;
+  double e = f.excitation - f.rotationalEnergy;
   int A = f.A;
   for (;;) {
     double sn = neutronSeparation(f.Z, A);
@@ -88,7 +105,7 @@ void evaporate(Fragment& f, std::mt19937_64& rng) {
     e -= sn + eps;
     --A;
   }
-  f.gammaEnergy = e;
+  f.gammaEnergy = e + f.rotationalEnergy;
   f.finalA = A;
 }
 
@@ -159,6 +176,8 @@ FissionEvent simulateFission(const Compound& cn, std::mt19937_64& rng) {
   // Fix rounding so the two kinetic energies sum to TKE exactly.
   H.kineticEnergy = ev.tke - L.kineticEnergy;
 
+  spinUp(L, rng);
+  spinUp(H, rng);
   evaporate(L, rng);
   evaporate(H, rng);
   betaDecayChain(L);
@@ -233,13 +252,14 @@ RunStats runMonteCarlo(const Compound& cn, int events, std::mt19937_64& rng) {
         ++neutronCount;
       }
       s.meanPromptGamma += f->gammaEnergy;
+      s.meanSpin += 0.5 * f->spin;
       for (const auto& b : f->betaChain) s.meanBetaChain += b.q;
     }
   }
   double perEvent = 1.0 / events;
   for (double* v : {&s.meanQ, &s.meanTke, &s.meanTxe, &s.meanLightKe, &s.meanHeavyKe,
                     &s.meanLightA, &s.meanHeavyA, &s.meanNu, &s.meanNeutronKe,
-                    &s.meanNeutronBinding, &s.meanPromptGamma, &s.meanBetaChain})
+                    &s.meanNeutronBinding, &s.meanPromptGamma, &s.meanBetaChain, &s.meanSpin})
     *v *= perEvent;
   for (double& y : s.yieldPre) y *= perEvent;
   for (double& y : s.yieldPost) y *= perEvent;

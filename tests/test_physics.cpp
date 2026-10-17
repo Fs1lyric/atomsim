@@ -107,7 +107,11 @@ static void testSingleEvent() {
         spent += f->neutronCmEnergies[k] + f->neutronSeparations[k];
       CHECK_NEAR(spent, f->excitation, 1e-9);
       CHECK(f->finalA == f->A - (int)f->neutronCmEnergies.size(), "neutron count");
-      CHECK(f->gammaEnergy < neutronSeparation(f->Z, f->finalA) + 1e-12,
+      // Rotational energy is locked into the gamma cascade; only the rest
+      // can evaporate neutrons, and evaporation runs until it can't.
+      CHECK(f->rotationalEnergy >= 0 && f->rotationalEnergy <= f->gammaEnergy + 1e-12,
+            "rotational energy must leave as gammas");
+      CHECK(f->gammaEnergy - f->rotationalEnergy < neutronSeparation(f->Z, f->finalA) + 1e-12,
             "evaporation stopped early");
       if (!f->betaChain.empty())
         CHECK(betaQ(f->betaChain.back().Z + 1, f->finalA) <= 0, "chain must end stable");
@@ -136,7 +140,8 @@ static void testAgainstExperiment() {
   CHECK(std::fabs(s.meanHeavyA - 139.6) < 1.0, "<A_H> = %.2f", s.meanHeavyA);
   CHECK(std::fabs(s.meanNu - 2.414) < 0.4, "<nu> = %.3f", s.meanNu);
   CHECK(std::fabs(s.meanNeutronLabEnergy - 2.0) < 0.4, "<E_n> = %.3f", s.meanNeutronLabEnergy);
-  CHECK(s.meanPromptGamma > 4.0 && s.meanPromptGamma < 9.0, "<E_gamma> = %.2f", s.meanPromptGamma);
+  CHECK(std::fabs(s.meanPromptGamma - 6.75) < 1.0, "<E_gamma> = %.2f", s.meanPromptGamma);
+  CHECK(std::fabs(s.meanSpin - 7.0) < 0.5, "<J> = %.2f", s.meanSpin);
 }
 
 int main() {

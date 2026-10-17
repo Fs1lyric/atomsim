@@ -30,6 +30,8 @@ struct Fragment {
   double kineticEnergy = 0;               // after full Coulomb acceleration, MeV
   double beta = 0;                        // final speed / c
   double excitation = 0;                  // at scission, MeV
+  int spin = 0;                           // angular momentum at scission, units of hbar
+  double rotationalEnergy = 0;            // part of the excitation held by rotation, MeV
   std::vector<double> neutronSeparations; // S_n paid for each evaporated neutron
   std::vector<double> neutronCmEnergies;  // neutron energy in the fragment frame
   std::vector<double> neutronLabEnergies;
@@ -67,5 +69,6 @@ struct RunStats {
   double meanQ = 0, meanTke = 0, meanTxe = 0, meanLightKe = 0, meanHeavyKe = 0;
   double meanLightA = 0, meanHeavyA = 0, meanNu = 0, meanNeutronLabEnergy = 0;
   double meanNeutronKe = 0, meanNeutronBinding = 0, meanPromptGamma = 0, meanBetaChain = 0;
+  double meanSpin = 0;  // per fragment, hbar
 };
 RunStats runMonteCarlo(const Compound& cn, int events, std::mt19937_64& rng);
