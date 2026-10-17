@@ -514,7 +514,7 @@ class ChainScene {
     text("neutron population, log scale 1 to 10^12", x + 5, y + 5, 10, kDim);
   }
 
-  Material material_ = uranium(0.937);
+  Fuel material_ = uranium(0.937);
   std::unique_ptr<ChainReaction> reaction_;
   std::vector<double> history_;
   std::deque<Glow> flashes_;

@@ -39,24 +39,24 @@ struct NuclideData {
 const NuclideData& u235Data();
 const NuclideData& u238Data();
 
-struct Material {
+struct Fuel {
   double density;                          // g/cm^3
   std::vector<std::pair<const NuclideData*, double>> nuclides;  // atoms per barn-cm
 };
 
 // Uranium metal of the given U-235 weight fraction (U-238 for the rest).
-Material uranium(double enrichment, double density = 18.74);
+Fuel uranium(double enrichment, double density = 18.74);
 // Godiva, ICSBEP HEU-MET-FAST-001: 93.7 wt% U-235, critical at 52.42 kg.
-Material godiva();
+Fuel godiva();
 
-double sphereRadius(const Material& m, double massKg);  // cm
+double sphereRadius(const Fuel& m, double massKg);  // cm
 double neutronSpeed(double energyMeV);                  // cm/s
 
 // k_eff of a bare sphere by the generation (power-iteration) method.
-double multiplicationFactor(const Material& m, double massKg, int neutronsPerGeneration,
+double multiplicationFactor(const Fuel& m, double massKg, int neutronsPerGeneration,
                             std::uint64_t seed);
 // Mass at which k_eff = 1, by bisection.
-double criticalMass(const Material& m, std::uint64_t seed);
+double criticalMass(const Fuel& m, std::uint64_t seed);
 
 struct Neutron {
   double x, y, z;      // cm from the centre
@@ -73,7 +73,7 @@ struct Flash {         // a fission site, for drawing
 // half the neutrons are dropped and each survivor stands for twice as many.
 class ChainReaction {
  public:
-  ChainReaction(const Material& m, double massKg, std::uint64_t seed, int cap = 4000);
+  ChainReaction(const Fuel& m, double massKg, std::uint64_t seed, int cap = 4000);
 
   void inject(int count);         // fission neutrons appearing at the centre
   void advance(double seconds);   // move every neutron forward in time
@@ -86,7 +86,7 @@ class ChainReaction {
   double fissions() const { return fissions_; }        // total, weighted
 
  private:
-  Material material_;
+  Fuel material_;
   double radius_, weight_ = 1, time_ = 0, fissions_ = 0;
   int cap_;
   std::mt19937_64 rng_;

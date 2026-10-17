@@ -104,13 +104,13 @@ double reactionSigma(const NuclideData& d, std::size_t r, double e) {
 
 double totalSigma(const NuclideData& d, double e) { return onGrid(d.totalGrid, e); }
 
-double macroscopicTotal(const Material& m, double e) {  // 1/cm
+double macroscopicTotal(const Fuel& m, double e) {  // 1/cm
   double s = 0;
   for (const auto& [data, density] : m.nuclides) s += density * totalSigma(*data, e);
   return s;
 }
 
-double sampleFlight(const Material& m, double e, Rng& rng) {
+double sampleFlight(const Fuel& m, double e, Rng& rng) {
   return -std::log(1 - uniform(rng)) / macroscopicTotal(m, std::max(e, kMinEnergy));
 }
 
@@ -123,7 +123,7 @@ Neutron born(double x, double y, double z, double energy, Rng& rng) {
 enum class Outcome { Moving, Fission, Absorbed };
 
 // One collision. New neutrons (fission, (n,2n)) are appended to `out`.
-Outcome collide(const Material& m, Neutron& n, Rng& rng, std::vector<Neutron>& out) {
+Outcome collide(const Fuel& m, Neutron& n, Rng& rng, std::vector<Neutron>& out) {
   const double e = std::max(n.energy, kMinEnergy);
   double pick = uniform(rng) * macroscopicTotal(m, e);
   for (const auto& [dataPtr, density] : m.nuclides) {
@@ -275,19 +275,19 @@ const NuclideData& u238Data() {
   return d;
 }
 
-Material uranium(double enrichment, double density) {
+Fuel uranium(double enrichment, double density) {
   double perGram = kAvogadro * 1e-24;  // atoms per barn-cm per (g/cm^3 / g/mol)
   return {density,
           {{&u235Data(), density * enrichment / 235.0439 * perGram},
            {&u238Data(), density * (1 - enrichment) / 238.0508 * perGram}}};
 }
 
-Material godiva() {
+Fuel godiva() {
   // Benchmark atom densities (U-234, 4.9e-4 /b-cm, is left out).
   return {18.74, {{&u235Data(), 4.4994e-2}, {&u238Data(), 2.4984e-3}}};
 }
 
-double sphereRadius(const Material& m, double massKg) {
+double sphereRadius(const Fuel& m, double massKg) {
   return std::cbrt(3 * massKg * 1000 / (4 * phys::kPi * m.density));
 }
 
@@ -296,7 +296,7 @@ double neutronSpeed(double energyMeV) {
   return kSpeedOfLightCm * std::sqrt(1 - 1 / (gamma * gamma));
 }
 
-double multiplicationFactor(const Material& m, double massKg, int perGeneration,
+double multiplicationFactor(const Fuel& m, double massKg, int perGeneration,
                             std::uint64_t seed) {
   const double R = sphereRadius(m, massKg);
   Rng rng(seed);
@@ -345,7 +345,7 @@ double multiplicationFactor(const Material& m, double massKg, int perGeneration,
   return kSum / kActive;
 }
 
-double criticalMass(const Material& m, std::uint64_t seed) {
+double criticalMass(const Fuel& m, std::uint64_t seed) {
   double lo = 10, hi = 2000;
   for (int i = 0; i < 16; ++i) {
     double mid = std::sqrt(lo * hi);
@@ -354,7 +354,7 @@ double criticalMass(const Material& m, std::uint64_t seed) {
   return std::sqrt(lo * hi);
 }
 
-ChainReaction::ChainReaction(const Material& m, double massKg, std::uint64_t seed, int cap)
+ChainReaction::ChainReaction(const Fuel& m, double massKg, std::uint64_t seed, int cap)
     : material_(m), radius_(sphereRadius(m, massKg)), cap_(cap), rng_(seed) {}
 
 void ChainReaction::inject(int count) {

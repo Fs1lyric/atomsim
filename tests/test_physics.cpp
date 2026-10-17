@@ -165,7 +165,7 @@ TEST(Physics, MonteCarloIsDeterministicAcrossThreadCounts) {
 // metal at 18.74 g/cm^3 is exactly critical.
 TEST(ChainReaction, ReproducesGodivaBenchmark) {
   EXPECT_NEAR(neutronSpeed(2.0), 1.95e9, 0.01e9);
-  Material g = godiva();
+  Fuel g = godiva();
   EXPECT_NEAR(sphereRadius(g, 52.42), 8.7407, 0.01);
   double k = multiplicationFactor(g, 52.42, 20000, 1);
   double mass = criticalMass(g, 2);
@@ -181,7 +181,7 @@ TEST(ChainReaction, NaturalUraniumNeverGoesCritical) {
 }
 
 TEST(ChainReaction, GrowsAboveCriticalAndDiesBelow) {
-  Material g = godiva();
+  Fuel g = godiva();
   ChainReaction hot(g, 90, 4), cold(g, 20, 5);
   hot.inject(500);
   cold.inject(500);
