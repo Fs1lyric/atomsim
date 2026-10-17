@@ -1,4 +1,4 @@
-# ENDF/B-VIII.0 fast-neutron data extracted by tools/extract_endf.py from n-092_U_235.endf
+# ENDF/B-VIII.0 fast-neutron data extracted by tools/extract_endf from n-092_U_235.endf
 AWR 233.024800
 XS 2 0.000000e+00 76
 2.300000e+04 1.138500e+01

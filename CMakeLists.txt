@@ -26,6 +26,10 @@ add_executable(atomsim src/main.cpp)
 target_link_libraries(atomsim PRIVATE physics)
 target_compile_options(atomsim PRIVATE ${ATOMSIM_WARNINGS})
 
+# Converts ENDF-6 evaluations into the tables in data/ (see tools/extract_endf.cpp).
+add_executable(extract_endf tools/extract_endf.cpp)
+target_compile_options(extract_endf PRIVATE ${ATOMSIM_WARNINGS})
+
 option(ATOMSIM_TESTS "Build the GoogleTest suite" ON)
 if(ATOMSIM_TESTS)
   include(FetchContent)
@@ -57,7 +61,6 @@ if(ATOMSIM_VIZ)
     set_target_properties(atomsim-viz PROPERTIES OUTPUT_NAME index SUFFIX ".html")
     target_link_options(atomsim-viz PRIVATE
       -sUSE_GLFW=3 -sALLOW_MEMORY_GROWTH=1 -sGL_ENABLE_GET_PROC_ADDRESS=1
-      --shell-file ${CMAKE_SOURCE_DIR}/viz/shell.html
       "--preload-file=${CMAKE_SOURCE_DIR}/data@/data")
   endif()
 endif()

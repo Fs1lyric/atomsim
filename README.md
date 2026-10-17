@@ -47,7 +47,7 @@ src/fission    one fission event: fragment sampling, Q-value, Coulomb accelerati
 src/chain      continuous-energy neutron transport: elastic scattering with ENDF angular
                distributions, inelastic levels, (n,2n), fission, capture; k_eff and time evolution
 viz/           raylib front end; every number on screen comes from the library above
-tools/         extract_endf.py turns 50 MB of ENDF-6 evaluations into 230 KB of tables
+tools/         extract_endf turns 50 MB of ENDF-6 evaluations into 230 KB of tables
 ```
 
 ## Design decisions
