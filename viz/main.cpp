@@ -54,6 +54,24 @@ std::string fmt(const char* f, double a) {
 
 std::string nuclide(int Z, int A) { return std::to_string(A) + elementSymbol(Z); }
 
+// Perspective camera looking at the origin from `eye`, panned so the origin
+// lands at screen x = `screenX` (fraction of the width), clear of the panels.
+Camera3D framedCamera(Vector3 eye, float screenX) {
+  float dist = Vector3Length(eye);
+  float aspect = float(GetScreenWidth()) / float(GetScreenHeight());
+  float halfWidth = dist * std::tan(22.5f * DEG2RAD) * aspect;
+  Vector3 forward = Vector3Normalize(Vector3Negate(eye));
+  Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, {0, 1, 0}));
+  Vector3 pan = Vector3Scale(right, -(screenX - 0.5f) * 2 * halfWidth);
+  Camera3D cam{};
+  cam.position = Vector3Add(eye, pan);
+  cam.target = pan;
+  cam.up = {0, 1, 0};
+  cam.fovy = 45;
+  cam.projection = CAMERA_PERSPECTIVE;
+  return cam;
+}
+
 void panel(float x, float y, float w, float h) {
   DrawRectangleRounded({x, y, w, h}, 0.06f, 8, kPanel);
 }
@@ -112,12 +130,8 @@ class AtomScene {
   void draw() {
     const Orbital& o = orbitals_[current_];
     float extent = 3.0f * float(o.n * o.n);
-    Camera3D cam{};
-    cam.position = {std::cos(angle_) * extent * 2.2f, extent * 0.9f, std::sin(angle_) * extent * 2.2f};
-    cam.target = {0, 0, 0};
-    cam.up = {0, 1, 0};
-    cam.fovy = 45;
-    cam.projection = CAMERA_PERSPECTIVE;
+    Camera3D cam = framedCamera(
+        {std::cos(angle_) * extent * 2.2f, extent * 0.9f, std::sin(angle_) * extent * 2.2f}, 0.36f);
 
     BeginBlendMode(BLEND_ADDITIVE);
     for (std::size_t i = 0; i < o.points.size(); ++i) {
@@ -222,13 +236,8 @@ class FissionScene {
     const float D = displaySeparation();
     const double mL = ev_.light.mass, mH = ev_.heavy.mass;
     const float centreL = -D * float(mH / (mL + mH)), centreH = D * float(mL / (mL + mH));
-    float zoom = 70 + 0.65f * D;
-    Camera3D cam{};
-    cam.position = {0, zoom * 0.35f, zoom};
-    cam.target = {0, 0, 0};
-    cam.up = {0, 1, 0};
-    cam.fovy = 45;
-    cam.projection = CAMERA_PERSPECTIVE;
+    float zoom = 70 + 0.9f * D;
+    Camera3D cam = framedCamera({0, zoom * 0.35f, zoom}, 0.67f);
 
     BeginMode3D(cam);
     // Incoming neutron.
@@ -246,7 +255,10 @@ class FissionScene {
       }
       DrawSphereEx(p, 0.85f, 6, 8, isProton_[i] ? kProton : kNeutron);
     }
-    for (const auto& p : particles_) DrawSphereEx(p.pos, 0.7f, 5, 6, WHITE);
+    for (const auto& p : particles_) {
+      DrawSphereEx(p.pos, 1.1f, 6, 8, WHITE);
+      DrawLine3D(p.pos, Vector3Subtract(p.pos, Vector3Scale(p.vel, 0.25f)), Fade(WHITE, 0.4f));
+    }
     EndMode3D();
 
     for (const auto& r : rings_) {  // prompt gamma rays: expanding flashes
@@ -289,7 +301,7 @@ class FissionScene {
   // Centre-to-centre distance, drawn on a log scale so 17 fm to 2e5 fm fits.
   float displaySeparation() const {
     double r = clock_ < 2.8f ? ev_.scissionDistance : stateAt(physicalTime()).separation;
-    return float(ev_.scissionDistance + 22 * std::log10(r / ev_.scissionDistance));
+    return float(ev_.scissionDistance + 14 * std::log10(r / ev_.scissionDistance));
   }
 
   void emit() {
@@ -425,13 +437,8 @@ class ChainScene {
   void draw() {
     const float scale = 4;  // display units per cm
     float R = float(reaction_->radius()) * scale;
-    Camera3D cam{};
-    float dist = std::max(R * 3.2f, 80.0f);
-    cam.position = {std::cos(angle_) * dist, dist * 0.4f, std::sin(angle_) * dist};
-    cam.target = {0, 0, 0};
-    cam.up = {0, 1, 0};
-    cam.fovy = 45;
-    cam.projection = CAMERA_PERSPECTIVE;
+    float dist = std::max(R * 3.4f, 80.0f);
+    Camera3D cam = framedCamera({std::cos(angle_) * dist, dist * 0.4f, std::sin(angle_) * dist}, 0.66f);
 
     BeginMode3D(cam);
     DrawSphereWires({0, 0, 0}, R, 16, 24, Fade(kDim, 0.25f));
@@ -446,7 +453,7 @@ class ChainScene {
       // Fast neutrons white-blue, slowed ones violet.
       float hot = std::clamp(float(std::log10(n.energy / 0.05) / std::log10(40.0)), 0.0f, 1.0f);
       Color c{(unsigned char)(150 + 80 * hot), (unsigned char)(110 + 140 * hot), 255, 255};
-      DrawRectangleV(s, {2, 2}, Fade(c, 0.8f));
+      DrawRectangleV(s, {3, 3}, Fade(c, 0.85f));
     }
     EndBlendMode();
     drawPanel();
@@ -481,8 +488,8 @@ class ChainScene {
     if (history_.size() > 80) {
       double rate = std::log(history_.back() / history_[history_.size() - 80]) / 20e-9;
       if (reaction_->population() <= 1) status = "chain died out: SUBCRITICAL", sc = kPositive;
-      else if (rate > 1e7) status = fmt("SUPERCRITICAL: x e every %.1f ns", 1e9 / rate), sc = kNegative;
-      else if (rate < -1e7) status = "dying out: SUBCRITICAL", sc = kPositive;
+      else if (rate > 3e6) status = fmt("SUPERCRITICAL: x e every %.0f ns", 1e9 / rate), sc = kNegative;
+      else if (rate < -3e6) status = "dying out: SUBCRITICAL", sc = kPositive;
       else status = "near CRITICAL", sc = kAccent;
     }
     text(status, x + 15, y + 215, 20, sc);
@@ -518,7 +525,7 @@ class ChainScene {
   std::unique_ptr<ChainReaction> reaction_;
   std::vector<double> history_;
   std::deque<Glow> flashes_;
-  float mass_ = 70, angle_ = 0;
+  float mass_ = 100, angle_ = 0;
   int enrichment_ = 0;
   std::uint64_t seed_ = 1;
 };
@@ -559,7 +566,7 @@ struct App {
     EndDrawing();
   }
 
-  static Rectangle tab(int i) { return {170.0f + i * 200, 18, 185, 36}; }
+  static Rectangle tab(int i) { return {170.0f + i * 225, 18, 210, 36}; }
 };
 
 App* gApp = nullptr;

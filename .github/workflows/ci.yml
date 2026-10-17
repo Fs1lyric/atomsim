@@ -59,6 +59,7 @@ jobs:
           run 2 fission-split.png 330
           run 2 fission-after.png 560
           run 3 chain.png 240
+          run 3 chain-late.png 420
           ls -la
       - uses: actions/upload-artifact@v4
         with:
