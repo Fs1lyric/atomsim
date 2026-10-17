@@ -2,7 +2,8 @@
 // time from the same physics library the CLI and tests use.
 //
 //   atomsim-viz                          interactive
-//   atomsim-viz --screenshot 2 out.png   render scene 2 for a while, save, exit
+//   atomsim-viz --screenshot 2 out.png [frames] [orbital]
+//                                        render a scene, save a PNG, exit
 #include "chain.hpp"
 #include "constants.hpp"
 #include "fission.hpp"
@@ -120,6 +121,8 @@ class AtomScene {
                               {"3s", 3, 0}, {"3p", 3, 1}, {"3d", 3, 2}})
       orbitals_.push_back(sample(name, n, l));
   }
+
+  void setOrbital(std::size_t i) { current_ = i % orbitals_.size(); }
 
   void update(float dt) {
     if (IsKeyPressed(KEY_RIGHT)) current_ = (current_ + 1) % orbitals_.size();
@@ -261,6 +264,14 @@ class FissionScene {
     }
     EndMode3D();
 
+    if (clock_ >= scission) {  // label the fragments
+      for (auto [x, f] : {std::pair{centreL, &ev_.light}, {centreH, &ev_.heavy}}) {
+        float lift = float(nuclearRadius(f->A)) * 1.4f + 3;
+        Vector2 s = GetWorldToScreen({x, lift, 0}, cam);
+        std::string name = nuclide(f->Z, f->A);
+        text(name, s.x - MeasureText(name.c_str(), 20) / 2.0f, s.y - 24, 20, kAccent);
+      }
+    }
     for (const auto& r : rings_) {  // prompt gamma rays: expanding flashes
       if (r.age < 0 || r.age > 1.2f) continue;
       Vector2 s = GetWorldToScreen(r.at, cam);
@@ -575,13 +586,14 @@ void frameThunk() { gApp->frame(); }
 }  // namespace
 
 int main(int argc, char** argv) {
-  int shotScene = -1, shotFrames = 0;
+  int shotScene = -1, shotFrames = 0, shotOrbital = 0;
   const char* shotPath = nullptr;
   for (int i = 1; i < argc; ++i)
     if (!std::strcmp(argv[i], "--screenshot") && i + 2 < argc) {
       shotScene = std::atoi(argv[i + 1]) - 1;
       shotPath = argv[i + 2];
       shotFrames = i + 3 < argc ? std::atoi(argv[i + 3]) : 300;
+      shotOrbital = i + 4 < argc ? std::atoi(argv[i + 4]) : 0;
     }
 
   SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
@@ -593,6 +605,7 @@ int main(int argc, char** argv) {
   if (shotScene >= 0) {
     app.scene = shotScene;
     app.fixedStep = true;
+    app.atom.setOrbital(std::size_t(shotOrbital));
     for (int f = 0; f < shotFrames; ++f) app.frame();
     TakeScreenshot(shotPath);
     CloseWindow();

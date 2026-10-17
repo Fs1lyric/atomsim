@@ -56,6 +56,8 @@ jobs:
           mkdir -p shots && cd shots
           run() { xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 ../build/atomsim-viz --screenshot "$@"; }
           run 1 atom.png 120
+          run 1 atom-3d.png 150 5
+          run 1 atom-2p.png 150 2
           run 2 fission-split.png 330
           run 2 fission-after.png 560
           run 3 chain.png 240
