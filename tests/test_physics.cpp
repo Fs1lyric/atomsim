@@ -52,7 +52,8 @@ static void testNucleus() {
   CHECK_NEAR(bindingEnergy(26, 56), 492.26, 0.01);
   // Fragments come from the full AME2020 table, not the model.
   CHECK(isMeasured(54, 140) && isMeasured(38, 96) && isMeasured(50, 132), "AME2020 loaded");
-  CHECK_NEAR(bindingEnergy(54, 140), 8.2908875 * 140, 1e-6);
+  // AME prints B/A to 0.1 eV, so B for A = 140 is only known to 7 eV from that column.
+  CHECK_NEAR(bindingEnergy(54, 140), 8.2908875 * 140, 1e-5);
   CHECK_NEAR(bindingEnergy(82, 208), 1636.43, 0.01);
   for (auto [Z, A] : {std::pair{26, 56}, {50, 120}, {82, 208}, {92, 236}}) {
     double rel = std::fabs(semfBindingEnergy(Z, A) / bindingEnergy(Z, A) - 1);
