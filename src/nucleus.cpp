@@ -3,6 +3,11 @@
 #include "constants.hpp"
 
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <string>
+#include <unordered_map>
 
 namespace {
 
@@ -43,17 +48,45 @@ double shellF(int n) {
 }
 
 struct MassEntry {
-  int Z, A;
-  double excessKeV;
+  double excessMeV;
+  bool extrapolated;  // marked '#' in AME2020: from systematics, not measured
 };
 
-// AME2020 mass excesses (Wang et al., Chinese Phys. C 45, 030003).
-constexpr MassEntry kMassTable[] = {
-    {1, 1, 7288.971},     {2, 4, 2424.916},     {6, 12, 0.0},
-    {26, 56, -60607.1},   {82, 208, -21748.6},  {92, 235, 40920.4},
-    {92, 236, 42446.3},   {92, 238, 47308.9},   {92, 239, 50573.9},
-    {94, 239, 48589.9},   {94, 240, 50127.0},
-};
+// Reads a fixed-width numeric field; false if it holds no number.
+bool field(const std::string& line, size_t pos, size_t len, double& out) {
+  if (line.size() < pos + len) return false;
+  std::string text = line.substr(pos, len);
+  for (char& c : text)
+    if (c == '#') c = '.';
+  char* end = nullptr;
+  out = std::strtod(text.c_str(), &end);
+  if (end == text.c_str()) return false;
+  for (; *end; ++end)
+    if (*end != ' ') return false;
+  return true;
+}
+
+// The full AME2020 table (Wang et al., Chinese Phys. C 45, 030003), keyed by
+// 1000 Z + A. Columns follow the Fortran format given in the file header.
+const std::unordered_map<int, MassEntry>& massTable() {
+  static const std::unordered_map<int, MassEntry> table = [] {
+    const char* path = ATOMSIM_DATA_DIR "/mass_1.mas20";
+    std::ifstream in(path);
+    if (!in) {
+      std::fprintf(stderr, "atomsim: cannot open AME2020 mass table %s\n", path);
+      std::exit(1);
+    }
+    std::unordered_map<int, MassEntry> t;
+    std::string line;
+    double Z, A, excess;
+    while (std::getline(in, line))
+      if (field(line, 9, 5, Z) && field(line, 14, 5, A) && field(line, 28, 14, excess))
+        t[1000 * int(Z) + int(A)] = {excess / 1000.0, line.substr(28, 14).find('#') != std::string::npos};
+    return t;
+  }();
+  return table;
+}
+
 
 }  // namespace
 
@@ -79,12 +112,15 @@ double shellBindingEnergy(int Z, int A) {
 }
 
 std::optional<double> measuredMassExcess(int Z, int A) {
-  for (const auto& e : kMassTable)
-    if (e.Z == Z && e.A == A) return e.excessKeV / 1000.0;
-  return std::nullopt;
+  auto it = massTable().find(1000 * Z + A);
+  if (it == massTable().end()) return std::nullopt;
+  return it->second.excessMeV;
 }
 
-bool isMeasured(int Z, int A) { return measuredMassExcess(Z, A).has_value(); }
+bool isMeasured(int Z, int A) {
+  auto it = massTable().find(1000 * Z + A);
+  return it != massTable().end() && !it->second.extrapolated;
+}
 
 double bindingEnergy(int Z, int A) {
   if (auto excess = measuredMassExcess(Z, A))

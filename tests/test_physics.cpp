@@ -50,6 +50,9 @@ static void testHydrogen() {
 
 static void testNucleus() {
   CHECK_NEAR(bindingEnergy(26, 56), 492.26, 0.01);
+  // Fragments come from the full AME2020 table, not the model.
+  CHECK(isMeasured(54, 140) && isMeasured(38, 96) && isMeasured(50, 132), "AME2020 loaded");
+  CHECK_NEAR(bindingEnergy(54, 140), 8.2908875 * 140, 1e-6);
   CHECK_NEAR(bindingEnergy(82, 208), 1636.43, 0.01);
   for (auto [Z, A] : {std::pair{26, 56}, {50, 120}, {82, 208}, {92, 236}}) {
     double rel = std::fabs(semfBindingEnergy(Z, A) / bindingEnergy(Z, A) - 1);
@@ -62,7 +65,7 @@ static void testNucleus() {
   CHECK_NEAR(shellBindingEnergy(82, 208), 1636.43, 2.0);
   CHECK_NEAR(neutronSeparation(92, 236), 6.5455, 0.002);
   CHECK_NEAR(neutronSeparation(92, 239), 4.8064, 0.002);
-  CHECK_NEAR(neutronSeparation(94, 240), 6.534, 0.002);
+  CHECK_NEAR(neutronSeparation(94, 240), 6.5342, 0.002);
   // Beta-stable end of the A=140 chain is Ce-140.
   CHECK(betaQ(56, 140) > 0 && betaQ(57, 140) > 0 && betaQ(58, 140) < 0,
         "A=140 chain should stop at Ce");
@@ -136,12 +139,17 @@ static void testAgainstExperiment() {
   std::mt19937_64 rng(11);
   Compound cn = formCompound(92, 235, 0.0253e-6);
   RunStats s = runMonteCarlo(cn, 20000, rng);
-  CHECK(std::fabs(s.meanTke - 170.5) < 5.0, "<TKE> = %.2f", s.meanTke);
-  CHECK(std::fabs(s.meanHeavyA - 139.6) < 1.0, "<A_H> = %.2f", s.meanHeavyA);
-  CHECK(std::fabs(s.meanNu - 2.414) < 0.4, "<nu> = %.3f", s.meanNu);
-  CHECK(std::fabs(s.meanNeutronLabEnergy - 2.0) < 0.4, "<E_n> = %.3f", s.meanNeutronLabEnergy);
-  CHECK(std::fabs(s.meanPromptGamma - 6.75) < 1.0, "<E_gamma> = %.2f", s.meanPromptGamma);
-  CHECK(std::fabs(s.meanSpin - 7.0) < 0.5, "<J> = %.2f", s.meanSpin);
+  // Every averaged observable within 5% of experiment.
+  auto within5 = [](double model, double measured) {
+    return std::fabs(model / measured - 1) < 0.05;
+  };
+  CHECK(within5(s.meanTke, 170.5), "<TKE> = %.2f", s.meanTke);
+  CHECK(within5(s.meanHeavyA, 139.6), "<A_H> = %.2f", s.meanHeavyA);
+  CHECK(within5(s.meanLightA, 96.4), "<A_L> = %.2f", s.meanLightA);
+  CHECK(within5(s.meanNu, 2.414), "<nu> = %.3f", s.meanNu);
+  CHECK(within5(s.meanNeutronLabEnergy, 2.0), "<E_n> = %.3f", s.meanNeutronLabEnergy);
+  CHECK(within5(s.meanPromptGamma, 6.75), "<E_gamma> = %.2f", s.meanPromptGamma);
+  CHECK(within5(s.meanSpin, 7.0), "<J> = %.2f", s.meanSpin);
 }
 
 int main() {

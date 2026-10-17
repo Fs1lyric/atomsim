@@ -43,8 +43,8 @@ ctest --test-dir build                   # physics checks
    Watt spectrum) and the energy budget, all compared with measured U-235(n_th,f) data.
 
 ## Limits (honest list)
-- Fragment masses use the Myers–Swiatecki liquid drop with spherical shell corrections;
-  strongly deformed fragments are still off by a few MeV.
+- Nuclear masses come from the full AME2020 table in `data/mass_1.mas20`. The
+  Myers–Swiatecki liquid drop with shell corrections fills in only nuclides it lacks.
 - Mass-yield modes and the effective scission distance (1.76 fm·(A_L^⅓+A_H^⅓)) are
   fitted to data, not derived. Deriving them needs time-dependent density-functional
   theory on a supercomputer.

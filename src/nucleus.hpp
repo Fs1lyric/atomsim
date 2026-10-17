@@ -8,14 +8,13 @@
 double semfBindingEnergy(int Z, int A);
 
 // Myers-Swiatecki (1966) liquid drop with their analytic shell correction:
-// the mass model used for fission fragments, which sit near the N = 82 and
-// Z = 50 shells where the plain SEMF is off by up to 10 MeV.
+// the fallback for nuclides missing from AME2020.
 double shellBindingEnergy(int Z, int A);
 
-// Measured mass excess from AME2020, for the handful of nuclides tabulated here.
+// AME2020 mass excess (measured, or AME's own extrapolation where unmeasured).
 std::optional<double> measuredMassExcess(int Z, int A);
 
-// Measured binding energy when tabulated, otherwise shellBindingEnergy.
+// AME2020 binding energy when tabulated, otherwise shellBindingEnergy.
 double bindingEnergy(int Z, int A);
 bool isMeasured(int Z, int A);
 

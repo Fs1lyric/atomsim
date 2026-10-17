@@ -10,6 +10,7 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 
 add_library(physics src/hydrogen.cpp src/nucleus.cpp src/electrons.cpp src/fission.cpp)
 target_include_directories(physics PUBLIC src)
+target_compile_definitions(physics PRIVATE ATOMSIM_DATA_DIR="${CMAKE_SOURCE_DIR}/data")
 
 add_executable(atomsim src/main.cpp)
 target_link_libraries(atomsim PRIVATE physics)

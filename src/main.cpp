@@ -349,7 +349,7 @@ int main(int argc, char** argv) {
   heading("MODEL LIMITS");
   std::puts(
       "  Exact: hydrogen bound states, Coulomb acceleration, conservation laws.\n"
-      "  Semi-empirical: fragment masses (Myers-Swiatecki, spherical shells), barrier,\n"
+      "  Measured: all nuclear masses (AME2020). Semi-empirical: fission barrier,\n"
       "  mass-yield modes and scission distance (fitted to data). Not modelled: QED,\n"
       "  pre-scission dynamics (needs time-dependent DFT), delayed neutrons, half-lives.");
   return 0;
